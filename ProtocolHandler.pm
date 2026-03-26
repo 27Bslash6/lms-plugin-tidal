@@ -257,7 +257,8 @@ sub getNextTrack {
 				$song->track->samplesize($response->{bitDepth});
 				
 				my $metadata = $cache->get( 'tidal_meta_' . $trackId);
-				Slim::Music::Info::setBitrate( $song->track, $response->{sampleRate});
+				my $bitrate = ($response->{bitDepth} || 16) * ($response->{sampleRate} || 44100) * 2;
+				Slim::Music::Info::setBitrate( $song->track, $bitrate);
 				Slim::Music::Info::setDuration( $song->track, $metadata->{duration});
 			}
 			else {
