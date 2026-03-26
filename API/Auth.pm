@@ -169,11 +169,10 @@ sub _call {
 		sub {
 			my $response = shift;
 
-			main::DEBUGLOG && $log->is_debug && $log->debug(Data::Dump::dump($response));
 			my $result = eval { from_json($response->content) };
 
 			$@ && $log->error($@);
-			main::INFOLOG && $log->is_info && $log->info(Data::Dump::dump($result));
+			main::INFOLOG && $log->is_info && $log->info("Auth response: user_id=$result->{user_id}, expires_in=$result->{expires_in}") if $result;
 
 			$cb->($result);
 		},
