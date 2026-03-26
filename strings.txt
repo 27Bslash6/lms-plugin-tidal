@@ -357,6 +357,12 @@ PLUGIN_TIDAL_SHOW_ALL
 	HU	Mutassa mindkettőt
 	NL	Toon beide
 
+PLUGIN_TIDAL_PREFER_EXPLICIT
+	EN	Prefer explicit versions
+
+PLUGIN_TIDAL_PREFER_EXPLICIT_DESC
+	EN	When both explicit and clean versions of an album are available, prefer the explicit version
+
 PLUGIN_TIDAL_EXPERIMENTAL_DASH_ATMOS
 	EN	Tidal DASH / Dolby Atmos Experimental Support	
 
@@ -386,12 +392,6 @@ PLUGIN_TIDAL_EXPERIMENTAL_SUPPORT_DASH
 
 PLUGIN_TIDAL_EXPERIMENTAL_SUPPORT_DASH_DESC
 	EN	Enables support for TIDAL DASH which is required for HiRes (Max) support. Files will be downloaded as .mpd and played as FLAC
-
-PLUGIN_TIDAL_EXPERIMENTAL_SUPPORT_DASH_PREFER_HIRES
-	EN	Prefer HIRES LOSSLESS [Max] to LOSSLESS [High]
-
-PLUGIN_TIDAL_EXPERIMENTAL_SUPPORT_DASH_PREFER_HIRES_DESC
-	EN	Disregard LOSSLESS [High] albums if HIRES LOSSLESS [Max] albums with the same artist, title and track numbers are available
 
 PLUGIN_TIDAL_EXPERIMENTAL_SUPPORT_DASH_STREAM
 	EN	DASH stream support
