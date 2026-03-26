@@ -61,6 +61,11 @@ sub initPlugin {
 		return !defined $new || $new eq '' || $new =~ /^[A-Z]{2}$/i;
 	} }, 'countryCode');
 
+	$prefs->setValidate({ 'validator' => sub {
+		my $new = $_[1];
+		return !defined $new || $new eq '' || ($new =~ /^[A-Za-z0-9_-]+$/ && length($new) <= 128);
+	} }, 'custom_cid', 'custom_sec');
+
 	Plugins::TIDAL::API::Auth->init();
 
 	if (main::WEBUI) {
