@@ -249,6 +249,9 @@ sub getNextTrack {
 				$fh->close();
 				$streamUrl = Slim::Utils::Misc::fileURLFromPath($fh);
 
+				# Keep File::Temp ref alive until song finishes so the file isn't deleted before FFmpeg reads it
+				$song->pluginData(manifest_fh => $fh);
+
 				# some details need to be added
 				$song->track->channels(2);
 				$song->track->samplerate($response->{sampleRate});

@@ -325,38 +325,6 @@ PLUGIN_TIDAL_REMOVE_FROM_PLAYLIST
 	HU	Eltávolítás erről a lejátszási listáról
 	NL	Verwijder van deze afspeellijst
 
-PLUGIN_TIDAL_EXPLICIT_ALBUMS
-	DA	Albumsfilter
-	DE	Albenfilter
-	EN	Album list filter
-	FR	Filtre d'albums
-	HU	Albumlista szűrő
-	NL	Album lijst filter
-
-PLUGIN_TIDAL_HIDE_EXPLICIT
-	DA	Foretrækker ikke-eksplicit version 
-	DE	Nicht-explizit bevorzugen
-	EN	Prefer non-explicit version
-	FR	Préférer les versions non explicites
-	HU	Ne explicit verzió módon
-	NL	Prefereer niet-expliciete versie
-
-PLUGIN_TIDAL_SHOW_EXPLICIT
-	DA	Foretrækker eksplicit version
-	DE	Explizite Version bevorzugen
-	EN	Prefer explicit version
-	FR	Préférer les versions explicites
-	HU	Explicit verzió előnyben részesítése
-	NL	Prefereer expliciete versie
-
-PLUGIN_TIDAL_SHOW_ALL
-	DA	Vis begge versioner af albummet
-	DE	Beide Albumversionen anzeigen
-	EN	Show both
-	FR	Montrer les deux versions des albums.
-	HU	Mutassa mindkettőt
-	NL	Toon beide
-
 PLUGIN_TIDAL_PREFER_EXPLICIT
 	EN	Prefer explicit versions
 

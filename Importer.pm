@@ -16,13 +16,12 @@ my $cache = Slim::Utils::Cache->new();
 my $log = logger('plugin.tidal');
 my $prefs = preferences('plugin.tidal');
 
-my ($ct, $splitChar);
+my ($splitChar);
 
 sub startScan { if (main::SCANNER) {
 	my ($class) = @_;
 
 	require Plugins::TIDAL::API::Sync;
-	$ct = Plugins::TIDAL::API::getFormat();
 	$splitChar = substr(preferences('server')->get('splitList'), 0, 1);
 
 	my $accounts = _enabledAccounts();
