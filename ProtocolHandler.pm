@@ -243,10 +243,8 @@ sub getNextTrack {
 			elsif ($response->{manifestMimeType} eq 'application/dash+xml') {
 				$format = "mpd";
 
-				# save the manifest to a temporary file and stream from there
-				# temporary file is only deleted automatically when the program ends
-				# this is not ideal as it will clutter up the temp directory
-				my $fh = File::Temp->new(DIR => Slim::Utils::Misc::getTempDir, SUFFIX => '.' . $format, UNLINK => 0);
+				# save the manifest to a temporary file for FFmpeg to read
+				my $fh = File::Temp->new(DIR => Slim::Utils::Misc::getTempDir, SUFFIX => '.' . $format, UNLINK => 1);
 				$fh->write($manifest);
 				$fh->close();
 				$streamUrl = Slim::Utils::Misc::fileURLFromPath($fh);
