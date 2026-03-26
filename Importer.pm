@@ -197,7 +197,7 @@ sub scanPlaylists { if (main::SCANNER) {
 				},
 			});
 
-			my @trackIds = map { "tidal://$_->{id}.$ct" } @$tracks;
+			my @trackIds = map { "tidal://$_->{id}." . Plugins::TIDAL::API::getFormat() } @$tracks;
 
 			$playlistObj->setTracks(\@trackIds) if $playlistObj && scalar @trackIds;
 			$insertTrackInTempTable_sth && $insertTrackInTempTable_sth->execute($url);
@@ -321,8 +321,8 @@ sub _prepareTrack {
 	my ($album, $track) = @_;
 
 	my $trackInfo = Plugins::TIDAL::API::getMediaInfo($track);
-	$ct = $trackInfo->{format};
-	my $url = 'tidal://' . $track->{id} . ".$ct";
+	my $track_ct = $trackInfo->{format};
+	my $url = 'tidal://' . $track->{id} . ".$track_ct";
 
 	# retrieve mpd dash stream data if enabled
 	if ($prefs->get('enableDASH') eq '1' && $prefs->get('enableDASHStream') eq '1') {
@@ -359,9 +359,9 @@ sub _prepareTrack {
 		AUDIO        => 1,
 		EXTID        => $url,
 		TIMESTAMP    => $album->{added},
-		CONTENT_TYPE => $ct,
+		CONTENT_TYPE => $track_ct,
 		# flc and mpd (DASH) are lossless
-		LOSSLESS     => $ct eq 'flc' || $ct eq 'mpd' ? 1 : 0,
+		LOSSLESS     => $track_ct eq 'flc' || $track_ct eq 'mpd' ? 1 : 0,
 		RELEASETYPE  => $album->{type},
 		REPLAYGAIN_ALBUM_GAIN => $track->{albumReplayGain},
 		REPLAYGAIN_ALBUM_PEAK => $track->{albumPeakAmplitude},
