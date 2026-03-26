@@ -325,21 +325,16 @@ sub _prepareTrack {
 	my $url = 'tidal://' . $track->{id} . ".$track_ct";
 
 	# retrieve mpd dash stream data if enabled
-	if ($prefs->get('enableDASH') eq '1' && $prefs->get('enableDASHStream') eq '1') {
-		sleep(3);	# sleep for 3 seconds to avoid going over limit
-		
-		require Plugins::TIDAL::API::Sync;
-		my $track_stream_data = Plugins::TIDAL::API::Sync->getTrackData($track->{id}, $prefs->get('quality')) || {};
+	if ($prefs->get('enableDASH') && $prefs->get('enableDASHStream')) {
+		my $track_stream_data = Plugins::TIDAL::API::Sync->getTrackData($track->{id}, $prefs->get('quality'));
 
-		# insert data			
-		$track->{'albumPeakAmplitude'} = $track_stream_data->{albumPeakAmplitude};
-		$track->{'albumReplayGain'} = $track_stream_data->{albumReplayGain};
-		$track->{'audioMode'} = $track_stream_data->{audioMode};
-		$track->{'audioQuality'} = $track_stream_data->{audioQuality};
-		$track->{'bitDepth'} = $track_stream_data->{bitDepth};
-		$track->{'sampleRate'} = $track_stream_data->{sampleRate};
-		$track->{'trackPeakAmplitude'} = $track_stream_data->{trackPeakAmplitude};
-		$track->{'trackReplayGain'} = $track_stream_data->{trackReplayGain};
+		if ($track_stream_data && !$track_stream_data->{error}) {
+			@{$track}{qw(albumPeakAmplitude albumReplayGain audioMode audioQuality bitDepth sampleRate trackPeakAmplitude trackReplayGain)} =
+				@{$track_stream_data}{qw(albumPeakAmplitude albumReplayGain audioMode audioQuality bitDepth sampleRate trackPeakAmplitude trackReplayGain)};
+		}
+		else {
+			$log->warn("Failed to get stream data for track $track->{id}");
+		}
 	}
 
 	my $trackData = {
