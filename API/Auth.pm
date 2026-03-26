@@ -28,7 +28,7 @@ sub init {
 	if ($prefs->get('enableCustomClientIDSecret') eq '1') {
 		$cid = $prefs->get('custom_cid');
 		$sec = $prefs->get('custom_sec');
-		main::DEBUGLOG && $log->is_debug && $log->debug("Using custom credentials: " . $cid . ", " . $sec);
+		main::DEBUGLOG && $log->is_debug && $log->debug("Using custom client credentials");
 	}
 	else {
 		$cid = $prefs->get('cid');
