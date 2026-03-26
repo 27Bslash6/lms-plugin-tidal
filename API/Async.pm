@@ -8,7 +8,7 @@ use Data::URIEncode qw(complex_to_query);
 use Date::Parse qw(str2time);
 use MIME::Base64 qw(encode_base64);
 use JSON::XS::VersionOneAndTwo;
-use List::Util qw(min maxstr reduce);
+use List::Util qw(min max maxstr reduce);
 
 use Slim::Networking::SimpleAsyncHTTP;
 use Slim::Utils::Cache;
@@ -151,65 +151,115 @@ sub trackRadio {
 	});
 }
 
-# try to remove duplicates
 sub _filterAlbums {
 	my ($self, $albums) = @_;
 
-	my $explicitAlbumHandling = $prefs->get('explicitAlbumHandling') || {};
+	my $tagged = _tagAlbums($albums);
+	my $selected = _selectPreferred($tagged);
+	my $preferExplicit = $prefs->get('preferExplicit') || 0;
+	return _filterExplicit($selected, $preferExplicit);
+}
 
-	my (%seen, %explicit, %nonExplicit, %include);
-	my $wantsExplicit = $explicitAlbumHandling->{$self->userId} || 0;
-	my $wantsNonExplicit = !$wantsExplicit || $explicitAlbumHandling->{$self->userId} == 2;
-	my $wantsBoth = $wantsExplicit && $wantsNonExplicit;
+# Annotate albums with quality rank and identity fingerprint.
+# Drop albums whose quality tier is disabled or that lack a LOSSLESS/DOLBY_ATMOS tag.
+sub _tagAlbums {
+	my ($albums) = @_;
 
-	my $explicitFilter = $wantsBoth
-		? sub { 1 }                                   # we want explicit and non explicit
-		: $wantsExplicit
-			? sub { $_[0] || !$explicit{$_[1]} }       # we only want the non-explicit version, unless there's none, in which case we use explicit version
-			: sub { !$_[0] || !$nonExplicit{$_[1]} };  # the opposite of the above: we prefer explicit over non-explicit, if both are available
+	my $enableAtmos = $prefs->get('enableAtmos');
+	my $enableDASH = $prefs->get('enableDASH');
 
-	return [ grep {
-		my $fingerprint = $_->{fingerprint};
+	my @tagged;
+	for my $album (@{$albums || []}) {
+		my @tags = @{$album->{mediaMetadata}->{tags} || []};
 
-		# LOSSLESS will pick-up HIRES too. Add Atmos albums if enabled
-		scalar (grep /^LOSSLESS$/ || ($prefs->get('enableAtmos') ? /^DOLBY_ATMOS$/ : /^$/), @{$_->{mediaMetadata}->{tags} || []})
-			&& $explicitFilter->($_->{explicit}, $fingerprint)
-			&& !$seen{$fingerprint}++
-			&& ($include{$fingerprint} || '') eq '1'
-	} map {
-		my $item = $_;
-		my $item_tag = Plugins::TIDAL::API::getMediaInfo($item)->{media_tag};
-		my $fingerprint = join(':', $item->{artist}->{id}, $item->{title}, $item->{numberOfTracks}, $item_tag, ($wantsBoth ? $item->{explicit} : undef));
+		# Must have LOSSLESS or DOLBY_ATMOS tag to be streamable at lossless tier
+		next unless grep { /^LOSSLESS$/ || /^DOLBY_ATMOS$/ } @tags;
 
-		$explicit{$fingerprint} ||= $_->{explicit};
-		$nonExplicit{$fingerprint} ||= !$_->{explicit};
+		my $info = Plugins::TIDAL::API::getMediaInfo($album);
+		my $tag = $info->{media_tag};
 
-		# check item_tag to see if album will be included based on its quality
-		if ( $prefs->get('enableAtmos') && ($item_tag eq MEDIA_TAG_ATMOS)) {
-			$include{$fingerprint} = '1';
+		# Compute quality rank; 0 means tier is disabled
+		my $rank = 0;
+		if ($tag eq MEDIA_TAG_ATMOS && $enableAtmos) {
+			$rank = 3;
 		}
-		elsif ( $prefs->get('enableDASH') && ($item_tag eq MEDIA_TAG_MAX)) {
-			$include{$fingerprint} = '1';
+		elsif ($tag eq MEDIA_TAG_MAX && $enableDASH) {
+			$rank = 2;
 		}
-		elsif ( $item_tag eq MEDIA_TAG_HIGH) {
-			$include{$fingerprint} = '1';	# include LOSSLESS [High] by default
+		elsif ($tag eq MEDIA_TAG_HIGH) {
+			$rank = 1;
 		}
 
-		# check if HIRES LOSSLESS just preferred to just LOSSLESS
-		if ($prefs->get('enableDASHPreferHiRes')) {
-			if ($item_tag eq MEDIA_TAG_MAX) { # remove [H] album if it is already present
-				my $fingerprint_check = $fingerprint =~ s/:\[M\]:/:\[H\]:/r;
-				if (($include{$fingerprint_check} || '') eq '1') { $include{$fingerprint_check} = '0'; }
-			}
-			elsif ($item_tag eq MEDIA_TAG_HIGH) { # do not add [H] if [M] is already present
-				my $fingerprint_check = $fingerprint =~ s/:\[H\]:/:\[M\]:/r;
-				if (($include{$fingerprint_check} || '') eq '1') { $include{$fingerprint} = '0'; }		
-			}
+		next unless $rank;
+
+		$album->{_media_info} = $info;
+		$album->{_quality_rank} = $rank;
+		$album->{_fingerprint} = join(':', $album->{artist}->{id}, $album->{title}, $album->{numberOfTracks});
+
+		push @tagged, $album;
+	}
+
+	return \@tagged;
+}
+
+# Group by identity fingerprint, keep only albums at the highest available quality rank.
+# May return up to 2 per identity (explicit + clean at same quality).
+sub _selectPreferred {
+	my ($tagged) = @_;
+
+	# Group by fingerprint
+	my %groups;
+	for my $album (@$tagged) {
+		push @{$groups{$album->{_fingerprint}}}, $album;
+	}
+
+	# From each group, keep only albums at the best quality rank
+	my @selected;
+	for my $fp (keys %groups) {
+		my $group = $groups{$fp};
+		my $best_rank = max(map { $_->{_quality_rank} } @$group);
+		push @selected, grep { $_->{_quality_rank} == $best_rank } @$group;
+	}
+
+	return \@selected;
+}
+
+# Pick explicit/clean winner from each fingerprint group.
+# Returns exactly one album per identity.
+sub _filterExplicit {
+	my ($selected, $preferExplicit) = @_;
+
+	my %groups;
+	for my $album (@$selected) {
+		push @{$groups{$album->{_fingerprint}}}, $album;
+	}
+
+	my @final;
+	for my $fp (keys %groups) {
+		my $group = $groups{$fp};
+
+		if (scalar @$group == 1) {
+			push @final, $group->[0];
+			next;
 		}
 
-		$item->{fingerprint} = $fingerprint;
-		$item;
-	} @{$albums || []} ];
+		# Multiple versions exist — pick based on preference
+		my ($explicit) = grep { $_->{explicit} } @$group;
+		my ($clean) = grep { !$_->{explicit} } @$group;
+
+		if ($preferExplicit && $explicit) {
+			push @final, $explicit;
+		}
+		elsif (!$preferExplicit && $clean) {
+			push @final, $clean;
+		}
+		else {
+			# Fallback: take whatever exists
+			push @final, $group->[0];
+		}
+	}
+
+	return \@final;
 }
 
 sub featured {
