@@ -16,7 +16,7 @@ use Slim::Utils::Log;
 use Slim::Utils::Prefs;
 use Slim::Utils::Strings qw(string);
 
-use Plugins::TIDAL::API qw(BURL LURL DEFAULT_LIMIT PLAYLIST_LIMIT MAX_LIMIT DEFAULT_TTL DYNAMIC_TTL USER_CONTENT_TTL);
+use Plugins::TIDAL::API qw(BURL LURL DEFAULT_LIMIT PLAYLIST_LIMIT MAX_LIMIT DEFAULT_TTL DYNAMIC_TTL USER_CONTENT_TTL MEDIA_TAG_HIGH MEDIA_TAG_MAX MEDIA_TAG_ATMOS);
 
 use constant CAN_MORE_HTTP_VERBS => Slim::Networking::SimpleAsyncHTTP->can('delete');
 
@@ -185,23 +185,23 @@ sub _filterAlbums {
 		$nonExplicit{$fingerprint} ||= !$_->{explicit};
 
 		# check item_tag to see if album will be included based on its quality
-		if ( $prefs->get('enableAtmos') && ($item_tag eq '[A]')) {
+		if ( $prefs->get('enableAtmos') && ($item_tag eq MEDIA_TAG_ATMOS)) {
 			$include{$fingerprint} = '1';
 		}
-		elsif ( $prefs->get('enableDASH') && ($item_tag eq '[M]')) {
+		elsif ( $prefs->get('enableDASH') && ($item_tag eq MEDIA_TAG_MAX)) {
 			$include{$fingerprint} = '1';
 		}
-		elsif ( $item_tag eq '[H]') {
+		elsif ( $item_tag eq MEDIA_TAG_HIGH) {
 			$include{$fingerprint} = '1';	# include LOSSLESS [High] by default
 		}
 
 		# check if HIRES LOSSLESS just preferred to just LOSSLESS
 		if ($prefs->get('enableDASHPreferHiRes')) {
-			if ($item_tag eq '[M]') { # remove [H] album if it is already present
+			if ($item_tag eq MEDIA_TAG_MAX) { # remove [H] album if it is already present
 				my $fingerprint_check = $fingerprint =~ s/:\[M\]:/:\[H\]:/r;
 				if (($include{$fingerprint_check} || '') eq '1') { $include{$fingerprint_check} = '0'; }
 			}
-			elsif ($item_tag eq '[H]') { # do not add [H] if [M] is already present
+			elsif ($item_tag eq MEDIA_TAG_HIGH) { # do not add [H] if [M] is already present
 				my $fingerprint_check = $fingerprint =~ s/:\[H\]:/:\[M\]:/r;
 				if (($include{$fingerprint_check} || '') eq '1') { $include{$fingerprint} = '0'; }		
 			}
