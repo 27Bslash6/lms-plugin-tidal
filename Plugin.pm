@@ -33,6 +33,23 @@ $prefs->migrate(2, sub {
 	1;
 });
 
+$prefs->migrate(3, sub {
+	# Convert explicitAlbumHandling (3-way per-user hash) to preferExplicit (boolean)
+	my $explicitAlbumHandling = $prefs->get('explicitAlbumHandling') || {};
+	# If any account had "prefer explicit" (value 1), set global preferExplicit
+	my $preferExplicit = 0;
+	for my $val (values %$explicitAlbumHandling) {
+		if ($val && $val == 1) {
+			$preferExplicit = 1;
+			last;
+		}
+	}
+	$prefs->set('preferExplicit', $preferExplicit);
+	$prefs->remove('explicitAlbumHandling');
+	$prefs->remove('enableDASHPreferHiRes');
+	1;
+});
+
 sub initPlugin {
 	my $class = shift;
 
@@ -44,7 +61,6 @@ sub initPlugin {
 		custom_cid => '',
 		custom_sec => '',
 		enableDASH => 0,
-		enableDASHPreferHiRes => 0,
 		enableDASHStream => 0,
 		enableAtmos => 0,
 	});
