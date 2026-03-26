@@ -12,7 +12,7 @@ our @EXPORT_OK = qw(AURL BURL LURL SCOPES GRANT_TYPE_DEVICE DEFAULT_LIMIT MAX_LI
 use constant AURL => 'https://auth.tidal.com';
 use constant BURL => 'https://api.tidal.com/v1';
 use constant LURL => 'https://listen.tidal.com/v2';
-use constant IURL => 'http://resources.tidal.com/images/';
+use constant IURL => 'https://resources.tidal.com/images/';
 use constant SCOPES => 'r_usr+w_usr';
 use constant GRANT_TYPE_DEVICE => 'urn:ietf:params:oauth:grant-type:device_code';
 
@@ -124,15 +124,15 @@ sub getMediaInfo {
 	my ($item) = @_;
 
 	# set defaults
-	my $ct ||= Plugins::TIDAL::API::getFormat();
+	my $ct = Plugins::TIDAL::API::getFormat();
 	my $channels = 2;	# default to stereo
 	my $lossless = 1;	# default to CD quality (LOSSLESS)
 	my $mediatag = '[H]';	# default to CD quality (LOSSLESS) [High]
 	my $samplerate = 44100;	# default to CD quality (LOSSLESS)
 	my $samplesize = 16;	# default to CD quality (LOSSLESS)
 
-	my @mediaTags = @{$item->{mediaMetadata}->{tags}};
-	if ( ($prefs->get('enableAtmos') eq '1') && grep( /^DOLBY_ATMOS$/, @mediaTags ) ) {
+	my @mediaTags = @{$item->{mediaMetadata}->{tags} || []};
+	if ( $prefs->get('enableAtmos') && grep( /^DOLBY_ATMOS$/, @mediaTags ) ) {
 		$ct = 'mp4';
 		$channels = 6;
 		$lossless = 0;		# EAC-3 is lossy
@@ -140,7 +140,7 @@ sub getMediaInfo {
 		$samplerate = 48000;	# always
 		$samplesize = 24;	# always
 	}
-	elsif ( ($prefs->get('enableDASH') eq '1') && grep( /^HIRES_LOSSLESS$/, @mediaTags ) ) {
+	elsif ( $prefs->get('enableDASH') && grep( /^HIRES_LOSSLESS$/, @mediaTags ) ) {
 		$ct = 'mpd';
 		$mediatag = '[M]';	# [Max]
 		# set samplerate default to 48000 but this is likely to be wrong
@@ -148,7 +148,7 @@ sub getMediaInfo {
 		$samplerate = 48000;	# likely incorrect
 		$samplesize = 24;	# always
 	}
-	elsif ( ($prefs->get('enableDASH') eq '1') && grep( /^LOSSLESS$/, @mediaTags ) ) {
+	elsif ( $prefs->get('enableDASH') && grep( /^LOSSLESS$/, @mediaTags ) ) {
 		$ct = 'mpd';		# DASH LOSSLESS 16/44.1 
 	}
 
@@ -230,9 +230,9 @@ sub cacheTrackMetadata {
 				disc => $entry->{volumeNumber},
 				tracknum => $entry->{trackNumber},
 				url => $entry->{url},
-        bpm => $entry->{bpm},				# add bpm
-			  explicit => $entry->{explicit},			# add explicit
-			  mediaMetadata => $entry->{mediaMetadata},	# add mediaMetadata
+				bpm => $entry->{bpm},
+				explicit => $entry->{explicit},
+				mediaMetadata => $entry->{mediaMetadata},
 			};
 
 			# cache track metadata aggressively
