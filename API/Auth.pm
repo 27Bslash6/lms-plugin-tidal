@@ -25,7 +25,7 @@ sub init {
 	my $class = shift;
 	
 	# check if we are using custom cid and sec
-	if ($prefs->get('enableCustomClientIDSecret') eq '1') {
+	if ($prefs->get('enableCustomClientIDSecret')) {
 		$cid = $prefs->get('custom_cid');
 		$sec = $prefs->get('custom_sec');
 		main::DEBUGLOG && $log->is_debug && $log->debug("Using custom client credentials");
@@ -35,7 +35,11 @@ sub init {
 		$sec = $prefs->get('sec');
 	}
 	
-	$class->_fetchKs(<DATA>) unless $cid && $sec;
+	if (!$cid || !$sec) {
+		$log->warn("Custom credentials enabled but empty - falling back to defaults")
+			if $prefs->get('enableCustomClientIDSecret');
+		$class->_fetchKs(<DATA>);
+	}
 }
 
 sub initDeviceFlow {

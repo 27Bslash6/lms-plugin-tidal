@@ -40,6 +40,13 @@ sub initPlugin {
 		quality => 'HIGH',
 		preferExplicit => 0,
 		countryCode => '',
+		enableCustomClientIDSecret => 0,
+		custom_cid => '',
+		custom_sec => '',
+		enableDASH => 0,
+		enableDASHPreferHiRes => 0,
+		enableDASHStream => 0,
+		enableAtmos => 0,
 	});
 
 	# reset the API ref when a player changes user

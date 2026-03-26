@@ -37,7 +37,7 @@ sub canSkip { 1 }	# where is this called?
 sub canSeek { 1 }
 
 # needs to be set to 1 to allow seek for MPD DASH and TIDAL Atmos
-sub canTranscodeSeek { $prefs->get('enableDASH') eq '1' || $prefs->get('enableAtmos') eq '1' ? 1 : 0 }
+sub canTranscodeSeek { $prefs->get('enableDASH') || $prefs->get('enableAtmos') ? 1 : 0 }
 
 sub getFormatForURL {
 	my ($class, $url) = @_;
@@ -187,7 +187,7 @@ sub getNextTrack {
 
 				# get regular CD quality if HiRes track is requested but MPD DASH is not enabled
 				# Atmos track will automatically be requested as 2CH if Atmos is not supported by client ID/secret
-				if ($result && $result->{manifestMimeType} !~ m|application/vnd.tidal.bt| && $prefs->get('quality') eq 'HI_RES' && $prefs->get('enableDASH') ne '1') {
+				if ($result && $result->{manifestMimeType} !~ m|application/vnd.tidal.bt| && $prefs->get('quality') eq 'HI_RES' && !$prefs->get('enableDASH')) {
 					$log->warn("failed to get streamable HiRes track ($url - $result->{manifestMimeType}), trying regular CD quality instead");
 					Plugins::TIDAL::Plugin::getAPIHandler($client)->getTrackUrl(sub {
 						$acb->($_[0])
@@ -211,7 +211,7 @@ sub getNextTrack {
 			return _gotTrackError($error, $errorCb) if $error;
 
 			# check if DASH is supported before allowing playback
-			if ($response->{manifestMimeType} !~ m|application/vnd.tidal.bt| && $prefs->get('enableDASH') ne '1') {
+			if ($response->{manifestMimeType} !~ m|application/vnd.tidal.bt| && !$prefs->get('enableDASH')) {
 				return _gotTrackError("currently unable to play stream $response->{manifestMimeType}", $errorCb);
 			}
 
