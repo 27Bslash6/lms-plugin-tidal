@@ -265,17 +265,9 @@ sub getNextTrack {
 
 			# TODO - store album gain information
 
-			# comment out original code as it is probably no longer relevant but worth keeping it for now
-			# this should not happen
-			#if ($format ne Plugins::TIDAL::API::getFormat) {
-			#	$log->warn("did not get the expected format for $trackId ($format <> " . Plugins::TIDAL::API::getFormat() . ')');
-			#	$song->pluginData(format => $format);
-			#}
-
 			# update format (but Dolby Atmos will need further correction later)
 			$song->pluginData(format => $format);
 
-			# main::INFOLOG && $log->info("got $format track at $streamUrl");
 			$song->streamUrl($streamUrl);
 
 			# now try to acquire the header for seeking and various details
