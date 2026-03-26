@@ -996,16 +996,16 @@ sub _renderAlbum {
 	# we could also join names
 	my $artist = $item->{artist} || $item->{artists}->[0] || {};
 
-	# add year to title
-	my $release_year = $item->{year} || substr($item->{releaseDate},0,4) || 0;
-	$item->{title} .= (' (' . $release_year . ')') if $release_year;
-	
-	# add quality / explicit tag(s) to title
+	# build display title without mutating the source item
+	my $title = $item->{title};
+
+	my $release_year = $item->{year} || substr($item->{releaseDate} || '', 0, 4) || 0;
+	$title .= " ($release_year)" if $release_year;
+
 	my $media_tag = Plugins::TIDAL::API::getMediaInfo($item)->{media_tag};
 	$media_tag .= '[E]' if $item->{explicit};
-	$item->{title} .= (' ' . $media_tag) if $media_tag;
+	$title .= " $media_tag" if $media_tag;
 
-	my $title = $item->{title};
 	$title .= ' - ' . $artist->{name} if $addArtistToTitle;
 
 	return {
@@ -1055,8 +1055,8 @@ sub _renderTrack {
 	my ($item, $addArtistToTitle, $playlistId, $index) = @_;
 
 	my $title = $item->{title};
+	$title .= ' [E]' if $item->{explicit};
 	$title .= ' - ' . $item->{artist}->{name} if $addArtistToTitle;
-	$item->{title} .= ' [E]' if $item->{explicit};
 
 	# track format can be mpd or mp4 for HIRES_LOSSLESS and DOLBY ATMOS
 	# or flc for LOSSLESS
