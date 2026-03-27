@@ -33,6 +33,23 @@ $prefs->migrate(2, sub {
 	1;
 });
 
+$prefs->migrate(3, sub {
+	# Convert explicitAlbumHandling (3-way per-user hash) to preferExplicit (boolean)
+	my $explicitAlbumHandling = $prefs->get('explicitAlbumHandling') || {};
+	# If any account had "prefer explicit" (value 1), set global preferExplicit
+	my $preferExplicit = 0;
+	for my $val (values %$explicitAlbumHandling) {
+		if ($val && $val == 1) {
+			$preferExplicit = 1;
+			last;
+		}
+	}
+	$prefs->set('preferExplicit', $preferExplicit);
+	$prefs->remove('explicitAlbumHandling');
+	$prefs->remove('enableDASHPreferHiRes');
+	1;
+});
+
 sub initPlugin {
 	my $class = shift;
 
@@ -40,6 +57,12 @@ sub initPlugin {
 		quality => 'HIGH',
 		preferExplicit => 0,
 		countryCode => '',
+		enableCustomClientIDSecret => 0,
+		custom_cid => '',
+		custom_sec => '',
+		enableDASH => 0,
+		enableDASHStream => 0,
+		enableAtmos => 0,
 	});
 
 	# reset the API ref when a player changes user
@@ -53,6 +76,11 @@ sub initPlugin {
 		# countryCode must be empty or a 2-letter country code
 		return !defined $new || $new eq '' || $new =~ /^[A-Z]{2}$/i;
 	} }, 'countryCode');
+
+	$prefs->setValidate({ 'validator' => sub {
+		my $new = $_[1];
+		return !defined $new || $new eq '' || ($new =~ /^[A-Za-z0-9_-]+$/ && length($new) <= 128);
+	} }, 'custom_cid', 'custom_sec');
 
 	Plugins::TIDAL::API::Auth->init();
 
@@ -984,16 +1012,16 @@ sub _renderAlbum {
 	# we could also join names
 	my $artist = $item->{artist} || $item->{artists}->[0] || {};
 
-	# add year to title
-	my $release_year = $item->{year} || substr($item->{releaseDate},0,4) || 0;
-	$item->{title} .= (' (' . $release_year . ')') if $release_year;
-	
-	# add quality / explicit tag(s) to title
+	# build display title without mutating the source item
+	my $title = $item->{title};
+
+	my $release_year = $item->{year} || substr($item->{releaseDate} || '', 0, 4) || 0;
+	$title .= " ($release_year)" if $release_year;
+
 	my $media_tag = Plugins::TIDAL::API::getMediaInfo($item)->{media_tag};
 	$media_tag .= '[E]' if $item->{explicit};
-	$item->{title} .= (' ' . $media_tag) if $media_tag;
+	$title .= " $media_tag" if $media_tag;
 
-	my $title = $item->{title};
 	$title .= ' - ' . $artist->{name} if $addArtistToTitle;
 
 	return {
@@ -1043,8 +1071,8 @@ sub _renderTrack {
 	my ($item, $addArtistToTitle, $playlistId, $index) = @_;
 
 	my $title = $item->{title};
+	$title .= ' [E]' if $item->{explicit};
 	$title .= ' - ' . $item->{artist}->{name} if $addArtistToTitle;
-	$item->{title} .= ' [E]' if $item->{explicit};
 
 	# track format can be mpd or mp4 for HIRES_LOSSLESS and DOLBY ATMOS
 	# or flc for LOSSLESS

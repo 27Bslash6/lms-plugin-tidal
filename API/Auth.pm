@@ -25,17 +25,21 @@ sub init {
 	my $class = shift;
 	
 	# check if we are using custom cid and sec
-	if ($prefs->get('enableCustomClientIDSecret') eq '1') {
+	if ($prefs->get('enableCustomClientIDSecret')) {
 		$cid = $prefs->get('custom_cid');
 		$sec = $prefs->get('custom_sec');
-		main::DEBUGLOG && $log->is_debug && $log->debug("Using custom credentials: " . $cid . ", " . $sec);
+		main::DEBUGLOG && $log->is_debug && $log->debug("Using custom client credentials");
 	}
 	else {
 		$cid = $prefs->get('cid');
 		$sec = $prefs->get('sec');
 	}
 	
-	$class->_fetchKs(<DATA>) unless $cid && $sec;
+	if (!$cid || !$sec) {
+		$log->warn("Custom credentials enabled but empty - falling back to defaults")
+			if $prefs->get('enableCustomClientIDSecret');
+		$class->_fetchKs(<DATA>);
+	}
 }
 
 sub initDeviceFlow {
@@ -169,11 +173,10 @@ sub _call {
 		sub {
 			my $response = shift;
 
-			main::DEBUGLOG && $log->is_debug && $log->debug(Data::Dump::dump($response));
 			my $result = eval { from_json($response->content) };
 
 			$@ && $log->error($@);
-			main::INFOLOG && $log->is_info && $log->info(Data::Dump::dump($result));
+			main::INFOLOG && $log->is_info && $log->info("Auth response: user_id=$result->{user_id}, expires_in=$result->{expires_in}") if $result;
 
 			$cb->($result);
 		},
@@ -181,8 +184,7 @@ sub _call {
 			my ($http, $error) = @_;
 
 			$log->error("Error: $error");
-			main::INFOLOG && $log->is_info && !$log->is_debug && $log->info(Data::Dump::dump($http->contentRef));
-			main::DEBUGLOG && $log->is_debug && $log->debug(Data::Dump::dump($http));
+			main::INFOLOG && $log->is_info && $log->info("Auth error status: " . ($http->code || 'unknown'));
 
 			$cb->({
 				error => $error || 'failed auth request'

@@ -325,37 +325,11 @@ PLUGIN_TIDAL_REMOVE_FROM_PLAYLIST
 	HU	Eltávolítás erről a lejátszási listáról
 	NL	Verwijder van deze afspeellijst
 
-PLUGIN_TIDAL_EXPLICIT_ALBUMS
-	DA	Albumsfilter
-	DE	Albenfilter
-	EN	Album list filter
-	FR	Filtre d'albums
-	HU	Albumlista szűrő
-	NL	Album lijst filter
+PLUGIN_TIDAL_PREFER_EXPLICIT
+	EN	Prefer explicit versions
 
-PLUGIN_TIDAL_HIDE_EXPLICIT
-	DA	Foretrækker ikke-eksplicit version 
-	DE	Nicht-explizit bevorzugen
-	EN	Prefer non-explicit version
-	FR	Préférer les versions non explicites
-	HU	Ne explicit verzió módon
-	NL	Prefereer niet-expliciete versie
-
-PLUGIN_TIDAL_SHOW_EXPLICIT
-	DA	Foretrækker eksplicit version
-	DE	Explizite Version bevorzugen
-	EN	Prefer explicit version
-	FR	Préférer les versions explicites
-	HU	Explicit verzió előnyben részesítése
-	NL	Prefereer expliciete versie
-
-PLUGIN_TIDAL_SHOW_ALL
-	DA	Vis begge versioner af albummet
-	DE	Beide Albumversionen anzeigen
-	EN	Show both
-	FR	Montrer les deux versions des albums.
-	HU	Mutassa mindkettőt
-	NL	Toon beide
+PLUGIN_TIDAL_PREFER_EXPLICIT_DESC
+	EN	When both explicit and clean versions of an album are available, prefer the explicit version
 
 PLUGIN_TIDAL_EXPERIMENTAL_DASH_ATMOS
 	EN	Tidal DASH / Dolby Atmos Experimental Support	
@@ -386,12 +360,6 @@ PLUGIN_TIDAL_EXPERIMENTAL_SUPPORT_DASH
 
 PLUGIN_TIDAL_EXPERIMENTAL_SUPPORT_DASH_DESC
 	EN	Enables support for TIDAL DASH which is required for HiRes (Max) support. Files will be downloaded as .mpd and played as FLAC
-
-PLUGIN_TIDAL_EXPERIMENTAL_SUPPORT_DASH_PREFER_HIRES
-	EN	Prefer HIRES LOSSLESS [Max] to LOSSLESS [High]
-
-PLUGIN_TIDAL_EXPERIMENTAL_SUPPORT_DASH_PREFER_HIRES_DESC
-	EN	Disregard LOSSLESS [High] albums if HIRES LOSSLESS [Max] albums with the same artist, title and track numbers are available
 
 PLUGIN_TIDAL_EXPERIMENTAL_SUPPORT_DASH_STREAM
 	EN	DASH stream support
