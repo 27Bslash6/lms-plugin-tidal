@@ -16,7 +16,7 @@ $repo->{plugins}[0]->{plugin}[0]->{version} = $version;
 open (my $fh, "<", $zipfile) or die $!;
 binmode $fh;
 
-my $digest = Digest::SHA->new;
+my $digest = Digest::SHA->new(256);
 $digest->addfile($fh);
 close $fh;
 
