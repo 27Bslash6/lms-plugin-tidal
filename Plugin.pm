@@ -103,6 +103,9 @@ sub initPlugin {
 		func  => \&trackInfoMenu,
 	) );
 
+	# Sync LMS favorites to TIDAL favorites
+	Slim::Control::Request::subscribe(\&_favoritesChanged, [['favorites'], ['add', 'delete']]);
+
 	Slim::Menu::ArtistInfo->registerInfoProvider( tidalArtistInfo => (
 		func => \&artistInfoMenu
 	) );
@@ -478,6 +481,25 @@ sub addPlayingToFavorites {
 	Plugins::TIDAL::Plugin::getAPIHandler($client)->updateFavorite( sub {
 		_completed($client, $cb);
 	}, 'add', 'track', $id );
+}
+
+# Sync LMS favorites add/delete to TIDAL favorites for tidal:// tracks
+sub _favoritesChanged {
+	my $request = shift;
+	my $url = $request->getParam('url') || return;
+	return unless $url =~ /^tidal:\/\//;
+
+	my $command = $request->getRequest(1);  # 'add' or 'delete'
+	my $tidalAction = $command eq 'add' ? 'add' : 'remove';
+	my $trackId = Plugins::TIDAL::ProtocolHandler::getId($url);
+	return unless $trackId;
+
+	my $client = $request->client();
+	my $api = getAPIHandler($client) || return;
+
+	main::INFOLOG && $log->is_info && $log->info("Syncing TIDAL favorite: $tidalAction track $trackId");
+
+	$api->updateFavorite(sub {}, $tidalAction, 'track', $trackId);
 }
 
 sub addPlayingToPlaylist {
