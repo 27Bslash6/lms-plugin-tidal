@@ -4,7 +4,7 @@
     <plugin maxTarget="*" minTarget="8.3" version="1.9.0" name="TIDAL">
       <category>musicservices</category>
       <title lang="EN">TIDAL local (HiRes)</title>
-      <sha>2a277786f8bef4c6f401186ec5035721ce7ced0a1266463b62422c7ed867129a</sha>
+      <sha>88f588b31efd7dc7c8f3fc4103962a3717ca7000</sha>
       <link>https://github.com/27Bslash6/lms-plugin-tidal</link>
       <creator>Michael Herger, philippe_44, 27Bslash6</creator>
       <desc lang="EN">TIDAL for local LMS use with HiRes/DASH support</desc>

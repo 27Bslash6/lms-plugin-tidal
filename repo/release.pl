@@ -3,7 +3,7 @@ use strict;
 
 use XML::Simple;
 use File::Basename;
-use Digest::SHA;
+use Digest::SHA1;
 
 my $repofile = $ARGV[0];
 my $version = $ARGV[1];
@@ -16,12 +16,13 @@ $repo->{plugins}[0]->{plugin}[0]->{version} = $version;
 open (my $fh, "<", $zipfile) or die $!;
 binmode $fh;
 
-my $digest = Digest::SHA->new(256);
-$digest->addfile($fh);
+my $sha1 = Digest::SHA1->new;
+$sha1->addfile($fh);
 close $fh;
 
-$repo->{plugins}[0]->{plugin}[0]->{sha}[0] = $digest->hexdigest;
-print("version:$version sha:", $digest->hexdigest, "\n");
+my $hexdigest = $sha1->hexdigest;
+$repo->{plugins}[0]->{plugin}[0]->{sha}[0] = $hexdigest;
+print("version:$version sha:$hexdigest\n");
 
 $url .= "/$zipfile";
 $repo->{plugins}[0]->{plugin}[0]->{url}[0] = $url;
