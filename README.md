@@ -1,14 +1,111 @@
-# TIDAL Plugin for Squeezebox
+# TIDAL Plugin for Squeezebox (HiRes Fork)
 
-## TODO
+A plugin for [Logitech Media Server](https://github.com/LMS-Community/slimserver) (LMS/Squeezebox) that integrates TIDAL streaming with HiRes/DASH and Dolby Atmos support.
 
-* a lot
-* use [latest API](https://developer.tidal.com/documentation/api/api-reference) once it's stable and released
+Forked from [michaelherger/lms-plugin-tidal](https://github.com/michaelherger/lms-plugin-tidal).
 
-## Thanks!
+## Features
 
-This implementation was inspired by the following projects:
+- Multi-account OAuth authentication
+- HiRes FLAC streaming via DASH (up to 24-bit/192kHz)
+- Dolby Atmos (EAC-3) playback via FFmpeg transcoding
+- Custom OAuth client ID/secret support
+- Library scanning with quality metadata (sample rate, bit depth, replay gain)
+- Album quality tags: `[H]` High, `[M]` Max, `[A]` Atmos, `[E]` Explicit
+- Material Skin UI integration
 
-* https://github.com/tamland/python-tidal
-* https://github.com/Fokka-Engineering/libopenTIDAL
-* https://tidalapi.netlify.app
+**Requires:** LMS >= 8.3.0, FFmpeg (for DASH and Atmos transcoding)
+
+## Installation
+
+### From Repository URL (recommended)
+
+1. In LMS, go to **Settings > Plugins**
+2. At the bottom, add this repository URL:
+   ```
+   https://raw.githubusercontent.com/27Bslash6/lms-plugin-tidal/main/repo/repo.xml
+   ```
+3. Install "TIDAL local (HiRes)" from the plugin list
+4. Restart LMS
+
+### Manual Installation
+
+1. Download `TIDAL.zip` from the [latest release](https://github.com/27Bslash6/lms-plugin-tidal/releases)
+2. Extract to your LMS plugin directory (e.g., `/var/lib/squeezeboxserver/Plugins/TIDAL/`)
+3. Restart LMS
+
+## Configuration
+
+### Basic Setup
+
+1. Go to **Settings > Plugins > TIDAL**
+2. Click "Add Account" and complete the OAuth device flow
+3. Select your preferred quality level
+
+### HiRes (DASH) Setup
+
+1. Enable **TIDAL DASH** in the experimental settings section
+2. Copy the DASH transcode rules from `custom-convert.conf` into your LMS `custom-convert.conf`
+3. Copy `custom-types.conf` into your LMS directory
+4. Ensure FFmpeg is installed and accessible to LMS
+
+### Dolby Atmos Setup
+
+1. Enable **TIDAL Dolby Atmos** in the experimental settings
+2. Atmos requires a client ID/secret that supports it (e.g., from an Android TV APK)
+3. Enable **Custom Client ID / Secret** and enter your credentials
+4. Copy the Atmos transcode rules from `custom-convert.conf` — you may need to adjust for your player setup
+
+### Quality Tiers by Client ID
+
+| Client ID/Secret | LOSSLESS (16/44.1) | HIRES LOSSLESS (24/192) | DOLBY ATMOS |
+|---|---|---|---|
+| Stock (built-in) | Yes | Yes (DASH required) | No |
+| TIDAL Developer | Yes | Yes (DASH required) | No |
+| Android TV APK | Yes (DASH required) | Yes (DASH required) | Yes |
+
+## Transcoding
+
+DASH and Atmos streams require FFmpeg transcoding. See `custom-convert.conf` for example transcode rules. The active rules are:
+
+- **DASH (mpd -> flc):** Copies FLAC audio from the DASH manifest
+- **Atmos passthrough (mp4eac3 -> mp4):** Direct passthrough for players that support EAC-3
+- **Atmos bitstream (mp4eac3 -> flc):** Wraps EAC-3 in SPDIF framing, outputs as FLAC (works with squeezelite + AVR)
+
+You may need to customize these for your player. Add MAC address restrictions in your `custom-convert.conf` to target specific players.
+
+## Releasing
+
+Releases are managed via GitHub Actions (`workflow_dispatch`).
+
+### Steps
+
+1. **Bump the version** in `install.xml`:
+   ```xml
+   <version>1.9.0</version>
+   ```
+2. **Commit and push** to `main`
+3. **Go to GitHub Actions** > "Publish" workflow > "Run workflow"
+4. **Enter the version** (must match `install.xml`) and click "Run workflow"
+   - Use the dry_run option to test without publishing
+5. The workflow will:
+   - Zip the plugin files
+   - Compute SHA-256 hash and update `repo/repo.xml`
+   - Commit the updated `repo.xml` to `main`
+   - Create a GitHub release with the zip attached
+6. Users with the repo URL configured will see the update in LMS
+
+### Version Scheme
+
+- Upstream versions: `1.8.x`
+- This fork: bump minor or patch as appropriate (e.g., `1.9.0`)
+
+## Credits
+
+- [Michael Herger](https://github.com/michaelherger) — original plugin author
+- [philippe_44](https://github.com/philippe44) — original plugin co-author
+- [smoothquark](https://github.com/smoothquark) — HiRes/DASH and Dolby Atmos implementation
+
+## License
+
+Same license as the upstream project.
