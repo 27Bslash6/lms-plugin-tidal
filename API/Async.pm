@@ -155,13 +155,15 @@ sub _filterAlbums {
 	my ($self, $albums) = @_;
 
 	my $tagged = _tagAlbums($albums);
-	my $selected = _selectPreferred($tagged);
+	my $groups = _groupByFingerprint($tagged);
+	my $selected = _selectPreferred($groups);
 	my $preferExplicit = $prefs->get('preferExplicit') || 0;
 	return _filterExplicit($selected, $preferExplicit);
 }
 
 # Annotate albums with quality rank and identity fingerprint.
 # Drop albums whose quality tier is disabled or that lack a LOSSLESS/DOLBY_ATMOS tag.
+# Returns wrapper hashes to avoid mutating cached API response objects.
 sub _tagAlbums {
 	my ($albums) = @_;
 
@@ -192,70 +194,78 @@ sub _tagAlbums {
 
 		next unless $rank;
 
-		$album->{_media_info} = $info;
-		$album->{_quality_rank} = $rank;
-		$album->{_fingerprint} = join(':', $album->{artist}->{id}, $album->{title}, $album->{numberOfTracks});
-
-		push @tagged, $album;
+		push @tagged, {
+			album => $album,
+			_quality_rank => $rank,
+			_fingerprint => join(':', $album->{artist}->{id}, $album->{title}, $album->{numberOfTracks}),
+		};
 	}
 
 	return \@tagged;
 }
 
-# Group by identity fingerprint, keep only albums at the highest available quality rank.
-# May return up to 2 per identity (explicit + clean at same quality).
-sub _selectPreferred {
+# Group tagged albums by identity fingerprint, preserving input order.
+sub _groupByFingerprint {
 	my ($tagged) = @_;
 
-	# Group by fingerprint
 	my %groups;
-	for my $album (@$tagged) {
-		push @{$groups{$album->{_fingerprint}}}, $album;
+	my @order;
+	for my $item (@$tagged) {
+		my $fp = $item->{_fingerprint};
+		if (!$groups{$fp}) {
+			push @order, $fp;
+		}
+		push @{$groups{$fp}}, $item;
 	}
 
-	# From each group, keep only albums at the best quality rank
+	return { groups => \%groups, order => \@order };
+}
+
+# Keep only albums at the highest available quality rank per identity.
+# May return up to 2 per identity (explicit + clean at same quality).
+sub _selectPreferred {
+	my ($data) = @_;
+	my ($groups, $order) = @{$data}{qw(groups order)};
+
 	my @selected;
-	for my $fp (keys %groups) {
-		my $group = $groups{$fp};
+	for my $fp (@$order) {
+		my $group = $groups->{$fp};
 		my $best_rank = max(map { $_->{_quality_rank} } @$group);
 		push @selected, grep { $_->{_quality_rank} == $best_rank } @$group;
 	}
 
-	return \@selected;
+	my $selected_data = _groupByFingerprint(\@selected);
+	return $selected_data;
 }
 
 # Pick explicit/clean winner from each fingerprint group.
-# Returns exactly one album per identity.
+# Returns the original album hashes (unwrapped), exactly one per identity.
 sub _filterExplicit {
-	my ($selected, $preferExplicit) = @_;
-
-	my %groups;
-	for my $album (@$selected) {
-		push @{$groups{$album->{_fingerprint}}}, $album;
-	}
+	my ($data, $preferExplicit) = @_;
+	my ($groups, $order) = @{$data}{qw(groups order)};
 
 	my @final;
-	for my $fp (keys %groups) {
-		my $group = $groups{$fp};
+	for my $fp (@$order) {
+		my $group = $groups->{$fp};
 
 		if (scalar @$group == 1) {
-			push @final, $group->[0];
+			push @final, $group->[0]{album};
 			next;
 		}
 
 		# Multiple versions exist — pick based on preference
-		my ($explicit) = grep { $_->{explicit} } @$group;
-		my ($clean) = grep { !$_->{explicit} } @$group;
+		my ($explicit) = grep { $_->{album}{explicit} } @$group;
+		my ($clean) = grep { !$_->{album}{explicit} } @$group;
 
 		if ($preferExplicit && $explicit) {
-			push @final, $explicit;
+			push @final, $explicit->{album};
 		}
 		elsif (!$preferExplicit && $clean) {
-			push @final, $clean;
+			push @final, $clean->{album};
 		}
 		else {
 			# Fallback: take whatever exists
-			push @final, $group->[0];
+			push @final, $group->[0]{album};
 		}
 	}
 
@@ -941,7 +951,7 @@ sub _call {
 					my ($http, $error) = @_;
 
 					$log->warn("Error: $error");
-					main::DEBUGLOG && $log->is_debug && $log->debug(Data::Dump::dump($http));
+					main::DEBUGLOG && $log->is_debug && $log->debug("HTTP error status: " . ($http->code || 'unknown') . " for URL: " . ($http->url || 'unknown'));
 
 					$cb->();
 				},

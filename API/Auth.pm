@@ -184,8 +184,7 @@ sub _call {
 			my ($http, $error) = @_;
 
 			$log->error("Error: $error");
-			main::INFOLOG && $log->is_info && !$log->is_debug && $log->info(Data::Dump::dump($http->contentRef));
-			main::DEBUGLOG && $log->is_debug && $log->debug(Data::Dump::dump($http));
+			main::INFOLOG && $log->is_info && $log->info("Auth error status: " . ($http->code || 'unknown'));
 
 			$cb->({
 				error => $error || 'failed auth request'
