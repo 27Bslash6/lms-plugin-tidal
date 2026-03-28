@@ -16,6 +16,35 @@ Forked from [michaelherger/lms-plugin-tidal](https://github.com/michaelherger/lm
 
 **Requires:** LMS >= 8.3.0, FFmpeg (for DASH and Atmos transcoding)
 
+## What This Fork Changes
+
+This fork includes significant code quality, security, and feature improvements over upstream.
+
+### Security Fixes
+- **Credential logging removed** — OAuth tokens and plaintext credentials no longer appear in logs
+- **Custom credentials validated and masked** — API secret is masked in the settings UI
+- **HTTPS for all image URLs** — no more mixed-content HTTP requests
+
+### Bug Fixes
+- **DASH temp file cleanup** — manifest temp files are cleaned up on object destruction
+- **Bitrate calculation** — reports actual bitrate instead of misusing sample rate
+- **Package-scoped mutation** — `$ct` in `_prepareTrack` and item titles in render functions are no longer mutated
+- **Blocking scanner sleep removed** — `sleep(3)` in the library scanner replaced with non-blocking approach
+- **`getMediaInfo` guard** — prevents crashes on missing dereference
+- **Preference defaults** — all prefs have proper defaults, uses Perl truthiness consistently
+- **Commented-out dead code removed** from ProtocolHandler
+
+### Code Quality
+- **Album filtering rewrite** — replaced monolithic `_filterAlbums` with a clean Group-Select-Filter pipeline
+- **Media tag constants extracted** — no more magic strings for quality tags
+- **Preference migration** — removed deprecated `enableDASHPreferHiRes` pref via migration
+- **Simplified settings UI** — explicit content toggle is now a global checkbox
+- **86-test test suite** covering core business logic (album filtering, quality tags, API helpers)
+- **Hardened GitHub Actions** — release pipeline with SHA-1 verification and dry-run support
+
+### New Features
+- **LMS Favorites → TIDAL sync** — heart a track in Material Skin and it syncs to your TIDAL favorites
+
 ## Installation
 
 ### From Repository URL (recommended)
@@ -90,7 +119,7 @@ Releases are managed via GitHub Actions (`workflow_dispatch`).
    - Use the dry_run option to test without publishing
 5. The workflow will:
    - Zip the plugin files
-   - Compute SHA-256 hash and update `repo/repo.xml`
+   - Compute SHA-1 hash and update `repo/repo.xml`
    - Commit the updated `repo.xml` to `main`
    - Create a GitHub release with the zip attached
 6. Users with the repo URL configured will see the update in LMS
