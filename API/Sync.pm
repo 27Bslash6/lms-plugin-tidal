@@ -117,30 +117,55 @@ sub _get {
 
 	my $query = complex_to_query($params);
 
-	main::INFOLOG && $log->is_info && $log->info("Getting $url?$query");
+	my $maxRetries = 5;
+	my $backoff = 2;
+	my $response;
 
-	my $response = Slim::Networking::SimpleSyncHTTP->new({
-		timeout => 15,
-		cache => 1,
-		expiry => 86400,
-	})->get(BURL . "$url?$query", 'Authorization' => 'Bearer ' . $token);
+	for my $attempt (0 .. $maxRetries) {
+		main::INFOLOG && $log->is_info && $log->info("Getting $url?$query" . ($attempt ? " (retry $attempt)" : ''));
 
-	# Handle expired token: refresh and retry once
-	if ($response->code == 401) {
-		main::INFOLOG && $log->is_info && $log->info("Token expired, refreshing...");
-		$token = Plugins::TIDAL::API::Auth->refreshTokenSync($userId);
+		$response = Slim::Networking::SimpleSyncHTTP->new({
+			timeout => 15,
+			cache => 1,
+			expiry => 86400,
+		})->get(BURL . "$url?$query", 'Authorization' => 'Bearer ' . $token);
 
-		if ($token) {
-			$response = Slim::Networking::SimpleSyncHTTP->new({
-				timeout => 15,
-				cache => 1,
-				expiry => 86400,
-			})->get(BURL . "$url?$query", 'Authorization' => 'Bearer ' . $token);
+		# Handle expired token: refresh and retry once
+		if ($response->code == 401) {
+			main::INFOLOG && $log->is_info && $log->info("Token expired, refreshing...");
+			$token = Plugins::TIDAL::API::Auth->refreshTokenSync($userId);
+
+			if ($token) {
+				$response = Slim::Networking::SimpleSyncHTTP->new({
+					timeout => 15,
+					cache => 1,
+					expiry => 86400,
+				})->get(BURL . "$url?$query", 'Authorization' => 'Bearer ' . $token);
+			}
+			else {
+				$log->error("Token refresh failed for $userId");
+				return;
+			}
 		}
-		else {
-			$log->error("Token refresh failed for $userId");
-			return;
+
+		# Handle rate limiting with backoff
+		if ($response->code == 429) {
+			my $retryAfter = $response->headers->header('Retry-After') || $backoff;
+			$retryAfter = $backoff if $retryAfter < $backoff;
+
+			if ($attempt < $maxRetries) {
+				$log->warn("Rate limited (429), backing off ${retryAfter}s (attempt " . ($attempt + 1) . "/$maxRetries)");
+				sleep($retryAfter);
+				$backoff = min($backoff * 2, 120);
+				next;
+			}
+			else {
+				$log->error("Rate limited after $maxRetries retries, giving up on $url");
+				return;
+			}
 		}
+
+		last;  # Not 429, exit retry loop
 	}
 
 	if ($response->code == 200) {
