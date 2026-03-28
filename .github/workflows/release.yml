@@ -39,7 +39,7 @@ jobs:
 
       - name: Zip Repository
         id: zip
-        run: zip TIDAL -r API *.pm HTML Settings install.xml strings.txt README.md
+        run: zip TIDAL -r API *.pm HTML Settings install.xml strings.txt README.md custom-convert.conf custom-types.conf
 
       - name: Setup Perl
         run: |
