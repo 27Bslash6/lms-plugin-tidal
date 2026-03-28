@@ -43,7 +43,7 @@ jobs:
 
       - name: Setup Perl
         run: |
-          sudo apt-get install -y libxml-simple-perl libdigest-sha1-perl
+          sudo apt-get install -y libxml-simple-perl
 
       - name: Update SHA and Version in repo.xml
         id: tag
