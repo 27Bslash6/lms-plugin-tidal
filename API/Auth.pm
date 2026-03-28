@@ -161,6 +161,52 @@ sub _storeTokens {
 	return $result->{access_token};
 }
 
+sub refreshTokenSync {
+	my ( $class, $userId ) = @_;
+
+	my $accounts = $prefs->get('accounts') || {};
+	my $profile  = $accounts->{$userId};
+
+	if ( $profile && (my $refreshToken = $profile->{refreshToken}) ) {
+		my $cid_local = $prefs->get('custom_cid') || $prefs->get('cid');
+		my $sec_local = $prefs->get('custom_sec') || $prefs->get('sec');
+
+		return unless $cid_local && $sec_local;
+
+		my $bearer = encode_base64(sprintf('%s:%s', $cid_local, $sec_local));
+		$bearer =~ s/\s//g;
+
+		my $params = {
+			client_id    => $cid_local,
+			grant_type   => 'refresh_token',
+			refresh_token => $refreshToken,
+		};
+
+		my $response = Slim::Networking::SimpleSyncHTTP->new({
+			timeout => 15,
+		})->post(AURL . TOKEN_PATH,
+			'Content-Type' => 'application/x-www-form-urlencoded',
+			'Authorization' => 'Basic ' . $bearer,
+			complex_to_query($params),
+		);
+
+		if ($response->code == 200) {
+			my $result = eval { from_json($response->content) };
+			if ($result && !$@) {
+				main::INFOLOG && $log->is_info && $log->info("Sync token refresh successful for $userId");
+				return _storeTokens($result);
+			}
+		}
+
+		$log->error("Sync token refresh failed for $userId: " . ($response->code || 'unknown'));
+	}
+	else {
+		$log->error('No refresh token available. Please re-authenticate.');
+	}
+
+	return;
+}
+
 sub _call {
 	my ( $class, $url, $cb, $params ) = @_;
 

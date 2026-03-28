@@ -11,6 +11,7 @@ use Slim::Utils::Cache;
 use Slim::Utils::Log;
 
 use Plugins::TIDAL::API qw(BURL DEFAULT_LIMIT MAX_LIMIT PLAYLIST_LIMIT);
+use Plugins::TIDAL::API::Auth;
 
 my $cache = Slim::Utils::Cache->new();
 my $log = logger('plugin.tidal');
@@ -102,8 +103,12 @@ sub _get {
 	my $pageSize = delete $params->{_page} || DEFAULT_LIMIT;
 
 	if (!$token) {
-		$log->error("Failed to get token for $userId");
-		return;
+		# Try a sync token refresh before giving up
+		$token = Plugins::TIDAL::API::Auth->refreshTokenSync($userId);
+		unless ($token) {
+			$log->error("Failed to get token for $userId");
+			return;
+		}
 	}
 
 	$params ||= {};
@@ -119,6 +124,24 @@ sub _get {
 		cache => 1,
 		expiry => 86400,
 	})->get(BURL . "$url?$query", 'Authorization' => 'Bearer ' . $token);
+
+	# Handle expired token: refresh and retry once
+	if ($response->code == 401) {
+		main::INFOLOG && $log->is_info && $log->info("Token expired, refreshing...");
+		$token = Plugins::TIDAL::API::Auth->refreshTokenSync($userId);
+
+		if ($token) {
+			$response = Slim::Networking::SimpleSyncHTTP->new({
+				timeout => 15,
+				cache => 1,
+				expiry => 86400,
+			})->get(BURL . "$url?$query", 'Authorization' => 'Bearer ' . $token);
+		}
+		else {
+			$log->error("Token refresh failed for $userId");
+			return;
+		}
+	}
 
 	if ($response->code == 200) {
 		my $result = eval { from_json($response->content) };
