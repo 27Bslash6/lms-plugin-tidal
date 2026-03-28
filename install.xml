@@ -2,7 +2,7 @@
 <extensions>
   <name>PLUGIN_TIDAL_NAME</name>
   <description>PLUGIN_TIDAL_DESC</description>
-  <creator>27Bslash6</creator>
+  <creator>27Bslash6 (fork of philippe_44, Michael Herger)</creator>
   <email>dev@27b.io</email>
   <id>27B6-TIDAL-HIRES</id>
   <version>1.10.2</version>
