@@ -6,10 +6,10 @@ use Test::More tests => 9;
 use lib 't/lib';
 use MockLMS;
 
-# Stub API::Sync before loading Importer (only needed at runtime, but safe to stub early)
+# Stub API::Sync before loading Importer
 BEGIN {
     package Plugins::TIDAL::API::Sync;
-    sub getTrackData { return undef }
+    our $LAST_ERROR_429 = 0;
     $INC{'Plugins/TIDAL/API/Sync.pm'} = 1;
 }
 

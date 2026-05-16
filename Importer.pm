@@ -17,8 +17,6 @@ my $log = logger('plugin.tidal');
 my $prefs = preferences('plugin.tidal');
 
 my ($splitChar);
-my $consecutive_429_giveups = 0;
-my $circuit_open_until = 0;
 
 sub startScan { if (main::SCANNER) {
 	my ($class) = @_;
@@ -324,37 +322,6 @@ sub _prepareTrack {
 	my $trackInfo = Plugins::TIDAL::API::getMediaInfo($track);
 	my $track_ct = $trackInfo->{format};
 	my $url = 'tidal://' . $track->{id} . ".$track_ct";
-
-	# retrieve mpd dash stream data if enabled
-	if ($prefs->get('enableDASH') && $prefs->get('enableDASHStream')) {
-		if (time() < $circuit_open_until) {
-			$log->warn("Scanner circuit open — skipping stream data fetch for track $track->{id}");
-		}
-		else {
-			$Plugins::TIDAL::API::Sync::LAST_ERROR_429 = 0;
-			my $track_stream_data = Plugins::TIDAL::API::Sync->getTrackData($track->{id}, $prefs->get('quality'));
-
-			if ($track_stream_data && !$track_stream_data->{error}) {
-				$consecutive_429_giveups = 0;
-				@{$track}{qw(albumPeakAmplitude albumReplayGain audioMode audioQuality bitDepth sampleRate trackPeakAmplitude trackReplayGain)} =
-					@{$track_stream_data}{qw(albumPeakAmplitude albumReplayGain audioMode audioQuality bitDepth sampleRate trackPeakAmplitude trackReplayGain)};
-			}
-			else {
-				if ($Plugins::TIDAL::API::Sync::LAST_ERROR_429) {
-					$consecutive_429_giveups++;
-					if ($consecutive_429_giveups >= 3) {
-						$circuit_open_until = time() + 300;
-						$consecutive_429_giveups = 0;
-						$log->error("Scanner circuit opened for 5 minutes after 3 consecutive 429 giveups");
-					}
-				}
-				else {
-					$consecutive_429_giveups = 0;
-				}
-				$log->warn("Failed to get stream data for track $track->{id}");
-			}
-		}
-	}
 
 	my $trackData = {
 		url          => $url,
