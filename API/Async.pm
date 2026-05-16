@@ -15,6 +15,7 @@ use Slim::Utils::Cache;
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
 use Slim::Utils::Strings qw(string);
+use Slim::Utils::Timers;
 
 use Plugins::TIDAL::API qw(BURL LURL DEFAULT_LIMIT PLAYLIST_LIMIT MAX_LIMIT DEFAULT_TTL DYNAMIC_TTL USER_CONTENT_TTL MEDIA_TAG_HIGH MEDIA_TAG_MAX MEDIA_TAG_ATMOS);
 
@@ -884,89 +885,118 @@ sub _call {
 
 			main::INFOLOG && $log->is_info && $log->info("$method $url?$query");
 
-			my $http = Slim::Networking::SimpleAsyncHTTP->new(
-				sub {
-					my $response = shift;
+			$url = BURL . $url unless $url =~ m{^https?://};
 
-					my $result = eval { from_json($response->content) } if $response->content;
+			my $maxRetries = 5;
+			my $attempt    = 0;
+			my $backoff    = 2;
 
-					$@ && $log->error($@);
-					main::DEBUGLOG && $log->is_debug && $log->debug(Data::Dump::dump($result));
+			my $do_request;
+			$do_request = sub {
+				my $http = Slim::Networking::SimpleAsyncHTTP->new(
+					sub {
+						my $response = shift;
 
-					if ($maxLimit && $result && ref $result eq 'HASH' && $maxLimit >= $result->{totalNumberOfItems} && $result->{totalNumberOfItems} - $pageSize > 0) {
-						my $remaining = $result->{totalNumberOfItems} - $pageSize;
-						main::INFOLOG && $log->is_info && $log->info("We need to page to get $remaining more results");
+						my $result = eval { from_json($response->content) } if $response->content;
 
-						my @offsets;
-						my $offset = $pageSize;
-						my $maxOffset = min($maxLimit, MAX_LIMIT, $result->{totalNumberOfItems});
-						do {
-							push @offsets, $offset;
-							$offset += $pageSize;
-						} while ($offset < $maxOffset);
+						$@ && $log->error($@);
+						main::DEBUGLOG && $log->is_debug && $log->debug(Data::Dump::dump($result));
 
-						# restore some of the initial params
-						$params->{_nocache}  = $noCache;
-						$params->{_personal} = $personalCache;
-						$params->{_refresh}  = $refresh;
-						$params->{_method}   = $method;
+						if ($maxLimit && $result && ref $result eq 'HASH' && $maxLimit >= $result->{totalNumberOfItems} && $result->{totalNumberOfItems} - $pageSize > 0) {
+							my $remaining = $result->{totalNumberOfItems} - $pageSize;
+							main::INFOLOG && $log->is_info && $log->info("We need to page to get $remaining more results");
 
-						if (scalar @offsets) {
-							Async::Util::amap(
-								inputs => \@offsets,
-								action => sub {
-									my ($input, $acb) = @_;
-									$self->_call($url, sub {
-										# only return the first argument, the second would be considered an error
-										$acb->($_[0]);
-									}, {
-										%$params,
-										offset => $input,
-									});
-								},
-								at_a_time => 4,
-								cb => sub {
-									my ($results, $error) = @_;
+							my @offsets;
+							my $offset = $pageSize;
+							my $maxOffset = min($maxLimit, MAX_LIMIT, $result->{totalNumberOfItems});
+							do {
+								push @offsets, $offset;
+								$offset += $pageSize;
+							} while ($offset < $maxOffset);
 
-									foreach (@$results) {
-										next unless ref $_ && $_->{items};
-										push @{$result->{items}}, @{$_->{items}};
+							# restore some of the initial params
+							$params->{_nocache}  = $noCache;
+							$params->{_personal} = $personalCache;
+							$params->{_refresh}  = $refresh;
+							$params->{_method}   = $method;
+
+							if (scalar @offsets) {
+								Async::Util::amap(
+									inputs => \@offsets,
+									action => sub {
+										my ($input, $acb) = @_;
+										$self->_call($url, sub {
+											# only return the first argument, the second would be considered an error
+											$acb->($_[0]);
+										}, {
+											%$params,
+											offset => $input,
+										});
+									},
+									at_a_time => 4,
+									cb => sub {
+										my ($results, $error) = @_;
+
+										foreach (@$results) {
+											next unless ref $_ && $_->{items};
+											push @{$result->{items}}, @{$_->{items}};
+										}
+
+										$cache->set($cacheKey, $result, $ttl) unless $noCache;
+
+										$cb->($result);
 									}
+								);
 
-									$cache->set($cacheKey, $result, $ttl) unless $noCache;
+								return;
+							}
+						}
 
-									$cb->($result);
-								}
-							);
+						$cache->set($cacheKey, $result, $ttl) unless $noCache;
 
+						$cb->($result, $response);
+					},
+					sub {
+						my ($http, $error) = @_;
+
+						my $code = $http->code || 0;
+
+						if ($code == 429 && $attempt < $maxRetries) {
+							$attempt++;
+							my $retryAfter = eval { $http->headers->header('Retry-After') } || $backoff;
+							$retryAfter = $backoff if $retryAfter < $backoff;
+							$log->warn("Rate limited (429), backing off ${retryAfter}s (attempt $attempt/$maxRetries) for $url");
+							$backoff = min($backoff * 2, 120);
+							# Non-blocking timer — sleep() would block the LMS event loop
+							Slim::Utils::Timers::setTimer(undef, time() + $retryAfter, $do_request);
 							return;
 						}
+
+						if ($code == 429) {
+							$Plugins::TIDAL::API::Sync::LAST_ERROR_429 = 1;
+							$log->error("Rate limited after $maxRetries retries, giving up on $url");
+						}
+						else {
+							$log->warn("Error: $error");
+							main::DEBUGLOG && $log->is_debug && $log->debug("HTTP error status: $code for URL: $url");
+						}
+
+						$cb->();
+					},
+					{
+						cache => ($method eq 'get' && !$noCache && !$personalCache) ? 1 : 0,
 					}
+				);
 
-					$cache->set($cacheKey, $result, $ttl) unless $noCache;
-
-					$cb->($result, $response);
-				},
-				sub {
-					my ($http, $error) = @_;
-
-					$log->warn("Error: $error");
-					main::DEBUGLOG && $log->is_debug && $log->debug("HTTP error status: " . ($http->code || 'unknown') . " for URL: " . ($http->url || 'unknown'));
-
-					$cb->();
-				},
-				{
-					cache => ($method eq 'get' && !$noCache && !$personalCache) ? 1 : 0,
+				if ($method eq 'post') {
+					$http->$method($url, %$headers, $query);
 				}
-			);
+				else {
+					$http->$method("$url?$query", %$headers);
+				}
+			};
 
-			$url = BURL . $url unless $url =~ m{^https?://};
-			if ($method eq 'post') {
-				$http->$method($url, %$headers, $query);
-			}
-			else {
-				$http->$method("$url?$query", %$headers);
-			}
+			$do_request->();
 		}
 	});
 }
