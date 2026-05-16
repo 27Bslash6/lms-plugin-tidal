@@ -261,24 +261,27 @@ sub getNextTrack {
 				my $bitrate = ($response->{bitDepth} || 16) * ($response->{sampleRate} || 44100) * 2;
 				Slim::Music::Info::setBitrate( $song->track, $bitrate);
 				Slim::Music::Info::setDuration( $song->track, $metadata->{duration});
-
-				# Cache format fields from playbackinfo; not fetched at scan time to avoid 429 storms
-				if (ref $metadata) {
-					my $updated = {
-						%$metadata,
-						sampleRate       => $response->{sampleRate},
-						bitDepth         => $response->{bitDepth},
-						albumReplayGain  => $response->{albumReplayGain},
-						albumPeakAmplitude => $response->{albumPeakAmplitude},
-					};
-					$cache->set('tidal_meta_' . $trackId, $updated, time() + 90 * 86400);
-				}
 			}
 			else {
 				return _gotTrackError("unknown stream is $response->{manifestMimeType}", $errorCb);
 			}
 
-			# TODO - store album gain information
+			# Cache format fields from playbackinfo for all manifest types; not fetched at scan
+			# time to avoid 429 storms. Must fire after the if/elsif/else so it covers BTS/HLS
+			# (LOSSLESS FLAC, Atmos) as well as DASH. Merge into existing meta blob to preserve
+			# other fields written by cacheTrackMetadata.
+			if (ref $response eq 'HASH') {
+				my $metadata = $cache->get('tidal_meta_' . $trackId);
+				$metadata = {} unless ref $metadata;
+				my $updated = {
+					%$metadata,
+					sampleRate         => $response->{sampleRate},
+					bitDepth           => $response->{bitDepth},
+					albumReplayGain    => $response->{albumReplayGain},
+					albumPeakAmplitude => $response->{albumPeakAmplitude},
+				};
+				$cache->set('tidal_meta_' . $trackId, $updated, time() + 90 * 86400);
+			}
 
 			# update format (but Dolby Atmos will need further correction later)
 			$song->pluginData(format => $format);

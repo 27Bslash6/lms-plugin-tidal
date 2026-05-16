@@ -61,7 +61,6 @@ sub initPlugin {
 		custom_cid => '',
 		custom_sec => '',
 		enableDASH => 0,
-		enableDASHStream => 0,
 		enableAtmos => 0,
 	});
 

@@ -16,8 +16,6 @@ use Plugins::TIDAL::API::Auth;
 my $cache = Slim::Utils::Cache->new();
 my $log = logger('plugin.tidal');
 
-our $LAST_ERROR_429 = 0;
-
 sub getFavorites {
 	my ($class, $userId, $type) = @_;
 
@@ -149,7 +147,6 @@ sub _get {
 				next;
 			}
 			else {
-				$LAST_ERROR_429 = 1;
 				$log->error("Rate limited after $maxRetries retries, giving up on $url");
 				return;
 			}

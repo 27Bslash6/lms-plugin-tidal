@@ -9,7 +9,6 @@ use MockLMS;
 # Stub API::Sync before loading Importer
 BEGIN {
     package Plugins::TIDAL::API::Sync;
-    our $LAST_ERROR_429 = 0;
     $INC{'Plugins/TIDAL/API/Sync.pm'} = 1;
 }
 

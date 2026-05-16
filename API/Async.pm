@@ -887,9 +887,11 @@ sub _call {
 
 			$url = BURL . $url unless $url =~ m{^https?://};
 
-			my $maxRetries = 5;
-			my $attempt    = 0;
-			my $backoff    = 2;
+			my $maxRetries  = 2;
+			my $attempt     = 0;
+			my $backoff     = 2;
+			my $start_time  = time();
+			my $completed   = 0;
 
 			my $do_request;
 			$do_request = sub {
@@ -954,6 +956,8 @@ sub _call {
 
 						$cache->set($cacheKey, $result, $ttl) unless $noCache;
 
+						return if $completed;
+						$completed = 1;
 						$cb->($result, $response);
 					},
 					sub {
@@ -962,25 +966,34 @@ sub _call {
 						my $code = $http->code || 0;
 
 						if ($code == 429 && $attempt < $maxRetries) {
-							$attempt++;
 							my $retryAfter = eval { $http->headers->header('Retry-After') } || $backoff;
 							$retryAfter = $backoff if $retryAfter < $backoff;
-							$log->warn("Rate limited (429), backing off ${retryAfter}s (attempt $attempt/$maxRetries) for $url");
-							$backoff = min($backoff * 2, 120);
-							# Non-blocking timer — sleep() would block the LMS event loop
-							Slim::Utils::Timers::setTimer(undef, time() + $retryAfter, $do_request);
-							return;
+
+							# Cap total wall-time at 30s — play-time 429s are user-interactive;
+							# a track shouldn't spin for minutes before failing.
+							if (time() - $start_time + $retryAfter > 30) {
+								$log->warn("Rate limited (429), giving up: next retry would exceed 30s cap for $url");
+							}
+							else {
+								$attempt++;
+								$log->warn("Rate limited (429), backing off ${retryAfter}s (attempt $attempt/$maxRetries) for $url");
+								$backoff = min($backoff * 2, 120);
+								# Non-blocking timer — sleep() would block the LMS event loop
+								Slim::Utils::Timers::setTimer(undef, time() + $retryAfter, $do_request);
+								return;
+							}
 						}
 
 						if ($code == 429) {
-							$Plugins::TIDAL::API::Sync::LAST_ERROR_429 = 1;
-							$log->error("Rate limited after $maxRetries retries, giving up on $url");
+							$log->error("Rate limited after $attempt retries, giving up on $url");
 						}
 						else {
 							$log->warn("Error: $error");
 							main::DEBUGLOG && $log->is_debug && $log->debug("HTTP error status: $code for URL: $url");
 						}
 
+						return if $completed;
+						$completed = 1;
 						$cb->();
 					},
 					{
