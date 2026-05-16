@@ -256,11 +256,23 @@ sub getNextTrack {
 				$song->track->channels(2);
 				$song->track->samplerate($response->{sampleRate});
 				$song->track->samplesize($response->{bitDepth});
-				
+
 				my $metadata = $cache->get( 'tidal_meta_' . $trackId);
 				my $bitrate = ($response->{bitDepth} || 16) * ($response->{sampleRate} || 44100) * 2;
 				Slim::Music::Info::setBitrate( $song->track, $bitrate);
 				Slim::Music::Info::setDuration( $song->track, $metadata->{duration});
+
+				# Cache format fields from playbackinfo; not fetched at scan time to avoid 429 storms
+				if (ref $metadata) {
+					my $updated = {
+						%$metadata,
+						sampleRate       => $response->{sampleRate},
+						bitDepth         => $response->{bitDepth},
+						albumReplayGain  => $response->{albumReplayGain},
+						albumPeakAmplitude => $response->{albumPeakAmplitude},
+					};
+					$cache->set('tidal_meta_' . $trackId, $updated, time() + 90 * 86400);
+				}
 			}
 			else {
 				return _gotTrackError("unknown stream is $response->{manifestMimeType}", $errorCb);
