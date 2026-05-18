@@ -1,15 +1,15 @@
 <?xml version='1.0' standalone='yes'?>
 <extensions>
   <plugins>
-    <plugin name="TIDAL" minTarget="8.3" version="1.10.3" maxTarget="*">
-      <sha>87e0c9d35ffee41644ed27c27f36160d13198a20</sha>
-      <url>https://github.com/27Bslash6/lms-plugin-tidal/releases/download/1.10.3/TIDAL.zip</url>
-      <creator>Michael Herger, philippe_44, 27Bslash6</creator>
-      <link>https://github.com/27Bslash6/lms-plugin-tidal</link>
-      <category>musicservices</category>
+    <plugin maxTarget="*" minTarget="8.3" version="1.10.6" name="TIDAL">
       <desc lang="EN">TIDAL for local LMS use with HiRes/DASH support</desc>
+      <url>https://github.com/27Bslash6/lms-plugin-tidal/releases/download/1.10.6/TIDAL.zip</url>
+      <link>https://github.com/27Bslash6/lms-plugin-tidal</link>
+      <creator>Michael Herger, philippe_44, 27Bslash6</creator>
+      <sha>88306a4d6fdf8d86e0b33e68c30830e28ef3c7ce</sha>
       <title lang="EN">TIDAL local (HiRes)</title>
       <icon>https://raw.githubusercontent.com/27Bslash6/lms-plugin-tidal/main/HTML/EN/plugins/TIDAL/html/tidal_MTL_svg_tidal.png</icon>
+      <category>musicservices</category>
     </plugin>
   </plugins>
 </extensions>
