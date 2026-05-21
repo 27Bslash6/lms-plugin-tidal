@@ -7,10 +7,11 @@ use Slim::Utils::Cache;
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
 
-our @EXPORT_OK = qw(AURL BURL LURL SCOPES GRANT_TYPE_DEVICE DEFAULT_LIMIT MAX_LIMIT PLAYLIST_LIMIT DEFAULT_TTL DYNAMIC_TTL USER_CONTENT_TTL MEDIA_TAG_HIGH MEDIA_TAG_MAX MEDIA_TAG_ATMOS);
+our @EXPORT_OK = qw(AURL BURL V2BURL LURL SCOPES GRANT_TYPE_DEVICE DEFAULT_LIMIT MAX_LIMIT PLAYLIST_LIMIT DEFAULT_TTL DYNAMIC_TTL USER_CONTENT_TTL MEDIA_TAG_HIGH MEDIA_TAG_MAX MEDIA_TAG_ATMOS);
 
 use constant AURL => 'https://auth.tidal.com';
 use constant BURL => 'https://api.tidal.com/v1';
+use constant V2BURL => 'https://api.tidal.com/v2';
 use constant LURL => 'https://listen.tidal.com/v2';
 use constant IURL => 'https://resources.tidal.com/images/';
 use constant SCOPES => 'r_usr+w_usr';

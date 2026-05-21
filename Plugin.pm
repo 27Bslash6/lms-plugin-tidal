@@ -220,6 +220,11 @@ sub handleFeed {
 		type => 'playlist',
 		url => \&getMyMixes,
 	},{
+		name => cstring($client, 'PLUGIN_TIDAL_SAVED_MIXES'),
+		image => 'plugins/TIDAL/html/mix_MTL_svg_stream.png',
+		type => 'playlist',
+		url => \&getSavedMixes,
+	},{
 		name => cstring($client, 'PLAYLISTS'),
 		image => 'html/images/playlists.png',
 		type => 'link',
@@ -670,6 +675,17 @@ sub getMyMixes {
 	my ( $client, $cb ) = @_;
 
 	getAPIHandler($client)->myMixes(sub {
+		my $items = [ map { _renderMix($client, $_) } @{$_[0]} ];
+		$cb->( {
+			items => $items
+		} );
+	});
+}
+
+sub getSavedMixes {
+	my ( $client, $cb ) = @_;
+
+	getAPIHandler($client)->savedMixes(sub {
 		my $items = [ map { _renderMix($client, $_) } @{$_[0]} ];
 		$cb->( {
 			items => $items

@@ -17,7 +17,7 @@ use Slim::Utils::Prefs;
 use Slim::Utils::Strings qw(string);
 use Slim::Utils::Timers;
 
-use Plugins::TIDAL::API qw(BURL LURL DEFAULT_LIMIT PLAYLIST_LIMIT MAX_LIMIT DEFAULT_TTL DYNAMIC_TTL USER_CONTENT_TTL MEDIA_TAG_HIGH MEDIA_TAG_MAX MEDIA_TAG_ATMOS);
+use Plugins::TIDAL::API qw(BURL V2BURL LURL DEFAULT_LIMIT PLAYLIST_LIMIT MAX_LIMIT DEFAULT_TTL DYNAMIC_TTL USER_CONTENT_TTL MEDIA_TAG_HIGH MEDIA_TAG_MAX MEDIA_TAG_ATMOS);
 
 use constant CAN_MORE_HTTP_VERBS => Slim::Networking::SimpleAsyncHTTP->can('delete');
 
@@ -419,6 +419,41 @@ sub myMixes {
 		deviceType => 'BROWSER',
 		locale => lc($serverPrefs->get('language')),
 	});
+}
+
+sub savedMixes {
+	my ($self, $cb) = @_;
+
+	# /v2/my-collection/mixes returns the user's explicitly-saved mixes
+	# (track radios, artist radios, anything they tapped the heart on).
+	# This is a DIFFERENT surface from /pages/my_collection_my_mixes —
+	# that endpoint returns algorithmically-generated mixes only.
+	# Cursor-paginated. We aggregate all pages before returning.
+	my @items;
+	my $fetch_page;
+	$fetch_page = sub {
+		my ($cursor) = @_;
+		$self->_get(V2BURL . '/my-collection/mixes', sub {
+			my $resp = shift || {};
+
+			# Each item is wrapped: { itemType:"MIX", addedAt:..., data:{ id, mixType, title, subTitle, images, ... } }
+			# Unwrap the data object so _renderMix can use it directly.
+			push @items, map { $_->{data} } grep { ref $_->{data} } @{$resp->{items} || []};
+
+			if ($resp->{cursor}) {
+				$fetch_page->($resp->{cursor});
+			}
+			else {
+				$cb->(\@items);
+			}
+		}, {
+			_ttl => 3600,
+			_personal => 1,
+			limit => 50,
+			defined $cursor ? (cursor => $cursor) : (),
+		});
+	};
+	$fetch_page->();
 }
 
 sub mix {
