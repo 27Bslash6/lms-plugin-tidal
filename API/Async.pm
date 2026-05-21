@@ -21,6 +21,12 @@ use Plugins::TIDAL::API qw(BURL LURL DEFAULT_LIMIT PLAYLIST_LIMIT MAX_LIMIT DEFA
 
 use constant CAN_MORE_HTTP_VERBS => Slim::Networking::SimpleAsyncHTTP->can('delete');
 
+# How long to remember that a Tidal track ID is unplayable (deleted, regionally
+# unavailable, rights pulled). When a stale playlist points at a removed album,
+# this stops LMS from re-hammering /tracks/$id and /tracks/$id/playbackinfopostpaywall
+# on every play attempt and on every subsequent reuse of the same playlist.
+use constant UNAVAILABLE_TTL => 86400;
+
 {
 	__PACKAGE__->mk_accessor( rw => qw(
 		client
@@ -771,11 +777,27 @@ sub updatePlaylist {
 sub getTrackUrl {
 	my ($self, $cb, $id, $params) = @_;
 
+	if (_isUnavailable($id)) {
+		main::INFOLOG && $log->is_info && $log->info("Skipping unavailable Tidal track $id (cached)");
+		return $cb->();
+	}
+
 	$params->{_nocache} = 1;
 
 	$self->_get('/tracks/' . $id . '/playbackinfopostpaywall', sub {
 		$cb->(@_);
 	}, $params);
+}
+
+sub _isUnavailable {
+	my ($id) = @_;
+	return $id && $cache->get("tidal_unavail_$id") ? 1 : 0;
+}
+
+sub _markUnavailable {
+	my ($id) = @_;
+	return unless $id;
+	$cache->set("tidal_unavail_$id", 1, UNAVAILABLE_TTL);
 }
 
 sub getToken {
@@ -988,8 +1010,17 @@ sub _call {
 							$log->error("Rate limited after $attempt retries, giving up on $url");
 						}
 						else {
-							$log->warn("Error: $error");
-							main::DEBUGLOG && $log->is_debug && $log->debug("HTTP error status: $code for URL: $url");
+							$log->warn("Error: $code $error ($url)");
+
+							# Negative-cache tracks Tidal reports as gone or unplayable so a
+							# stale playlist pointing at a removed album doesn't re-hammer
+							# the API on every play attempt.
+							if ($url =~ m{/tracks/(\d+)(?:/playbackinfopostpaywall)?(?:\?|$)}) {
+								my $trackId = $1;
+								if ($code == 404 || ($code == 401 && $url =~ m{/playbackinfopostpaywall})) {
+									_markUnavailable($trackId);
+								}
+							}
 						}
 
 						return if $completed;
