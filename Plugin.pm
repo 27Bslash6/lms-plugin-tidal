@@ -1208,10 +1208,17 @@ sub _renderArtist {
 sub _renderMix {
 	my ($client, $item) = @_;
 
+	# /pages/my_collection_my_mixes items carry a pre-formatted `subTitle`
+	# ("Artist A, Artist B and more"); the legacy /mixes/daily/track items
+	# carry an `artists` array. Prefer the explicit subTitle when present
+	# so we render both shapes.
+	my $line2 = $item->{subTitle}
+		|| join(', ', uniq(map { $_->{name} } @{$item->{artists} || []}));
+
 	return {
 		name => $item->{title},
 		line1 => $item->{title},
-		line2 => join(', ', uniq(map { $_->{name} } @{$item->{artists}})),
+		line2 => $line2,
 		favorites_url => 'tidal://mix:' . $item->{id},
 		type => 'playlist',
 		url => \&getMix,

@@ -5,7 +5,7 @@
   <creator>27Bslash6 (fork of philippe_44, Michael Herger)</creator>
   <email>dev@27b.io</email>
   <id>27B6-TIDAL-HIRES</id>
-  <version>1.10.7</version>
+  <version>1.10.8</version>
   <module>Plugins::TIDAL::Plugin</module>
   <importmodule>Plugins::TIDAL::Importer</importmodule>
   <optionsURL>plugins/TIDAL/settings.html</optionsURL>

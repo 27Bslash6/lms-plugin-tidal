@@ -394,12 +394,30 @@ sub featuredItem {
 sub myMixes {
 	my ($self, $cb) = @_;
 
-	$self->_get("/mixes/daily/track", sub {
-		$cb->(@_);
+	# /pages/my_collection_my_mixes is what the Tidal apps fetch for the
+	# Collection -> Mixes & Radio screen. It returns all of DISCOVERY_MIX,
+	# DAILY_MIX, and VIDEO_DAILY_MIX; /mixes/daily/track only returned the
+	# DAILY_MIX subset. Video mixes get filtered because LMS has no video
+	# pipeline.
+	$self->_get("/pages/my_collection_my_mixes", sub {
+		my $page = shift;
+		my @items;
+
+		for my $row (@{$page->{rows} || []}) {
+			for my $module (@{$row->{modules} || []}) {
+				for my $item (@{$module->{pagedList}{items} || []}) {
+					next if ($item->{mixType} || '') eq 'VIDEO_DAILY_MIX';
+					push @items, $item;
+				}
+			}
+		}
+
+		$cb->(\@items);
 	}, {
-		limit => MAX_LIMIT,
 		_ttl => 3600,
 		_personal => 1,
+		deviceType => 'BROWSER',
+		locale => lc($serverPrefs->get('language')),
 	});
 }
 
